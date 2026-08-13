@@ -51,12 +51,6 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Debug OIDC token claims
-        run: |
-         curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" \
-          | jq -r '.value' | cut -d '.' -f2 | base64 -d 2>/dev/null | jq .
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -199,7 +193,7 @@ jobs:
           category: checkov
 
       - name: Run Trivy IaC scan
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.28.0
         id: trivy
         with:
           scan-type: config
@@ -232,7 +226,7 @@ jobs:
         run: docker build -t ${{ matrix.service }}:scan app/${{ matrix.service }}
 
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ matrix.service }}:scan
           format: sarif
