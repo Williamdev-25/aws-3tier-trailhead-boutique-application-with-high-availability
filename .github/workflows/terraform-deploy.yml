@@ -76,7 +76,6 @@ jobs:
         uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: latest
-          cache: true
 
       - name: Init TFLint
         run: tflint --init
@@ -147,6 +146,7 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     name: 'Security Scanning'
+    needs: formatting-validate-linting
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -193,7 +193,7 @@ jobs:
           category: checkov
 
       - name: Run Trivy IaC scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         id: trivy
         with:
           scan-type: config
@@ -214,6 +214,7 @@ jobs:
   security-scan-images:
     runs-on: ubuntu-latest
     name: 'Container Image Vulnerability Scan'
+    needs: formatting-validate-linting
     strategy:
       fail-fast: false
       matrix:
@@ -226,7 +227,7 @@ jobs:
         run: docker build -t ${{ matrix.service }}:scan app/${{ matrix.service }}
 
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: ${{ matrix.service }}:scan
           format: sarif
