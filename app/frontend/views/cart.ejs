@@ -1,0 +1,34 @@
+<%- include('_header') %>
+
+<h1>Your Cart</h1>
+
+<% if (items.length === 0) { %>
+  <p>Your cart is empty. <a href="/">Continue shopping</a>.</p>
+<% } else { %>
+  <table class="cart-table">
+    <thead>
+      <tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr>
+    </thead>
+    <tbody>
+      <% items.forEach(function(item) { %>
+        <tr>
+          <td><a href="/product/<%= item.product.id %>"><%= item.product.name %></a></td>
+          <td><%= item.quantity %></td>
+          <td><%= cents(item.product.priceCents) %></td>
+          <td><%= cents(item.lineTotal) %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+
+  <p class="cart-total">Total: <strong><%= cents(totalCents) %></strong></p>
+
+  <div class="cart-actions">
+    <form action="/cart/clear" method="post">
+      <button type="submit" class="secondary">Clear cart</button>
+    </form>
+    <a href="/checkout"><button type="button">Proceed to checkout</button></a>
+  </div>
+<% } %>
+
+<%- include('_footer') %>

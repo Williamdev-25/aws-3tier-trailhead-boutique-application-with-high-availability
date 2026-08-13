@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trailhead Boutique</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Trailhead Boutique</a>
+    <form class="search" action="/" method="get">
+      <input type="text" name="q" placeholder="Search products..." value="<%= typeof query !== 'undefined' ? query : '' %>" />
+      <button type="submit">Search</button>
+    </form>
+    <a class="cart-link" href="/cart">Cart</a>
+  </header>
+  <main class="container">

@@ -1,0 +1,30 @@
+<%- include('_header') %>
+
+<h1>Order confirmed!</h1>
+
+<p>Thanks, your order is on its way.</p>
+
+<table class="cart-table">
+  <thead>
+    <tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr>
+  </thead>
+  <tbody>
+    <% order.items.forEach(function(item) { %>
+      <tr>
+        <td><%= item.name %></td>
+        <td><%= item.quantity %></td>
+        <td><%= cents(item.unitPriceCents) %></td>
+        <td><%= cents(item.lineTotalCents) %></td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+
+<p>Items: <%= cents(order.itemTotalCents) %></p>
+<p>Shipping: <%= cents(order.shippingCents) %></p>
+<p><strong>Total: <%= cents(order.totalCents) %></strong></p>
+
+<p class="order-id">Order ID: <%= order.orderId %></p>
+<p><a href="/">Continue shopping</a></p>
+
+<%- include('_footer') %>

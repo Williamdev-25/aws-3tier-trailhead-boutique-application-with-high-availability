@@ -1,0 +1,21 @@
+<%- include('_header') %>
+
+<h1>Checkout</h1>
+
+<% if (error) { %>
+  <p class="error"><%= error %></p>
+<% } %>
+
+<form action="/checkout" method="post" class="checkout-form">
+  <label for="email">Email</label>
+  <input type="email" id="email" name="email" required />
+
+  <label for="shippingAddress">Shipping address</label>
+  <textarea id="shippingAddress" name="shippingAddress" rows="3" required></textarea>
+
+  <p class="note">This is a demo storefront &mdash; no real payment is processed.</p>
+
+  <button type="submit">Place order</button>
+</form>
+
+<%- include('_footer') %>

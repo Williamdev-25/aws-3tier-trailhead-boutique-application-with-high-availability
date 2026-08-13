@@ -1,0 +1,13 @@
+{
+  "name": "cartcheckoutservice",
+  "version": "1.0.0",
+  "description": "Cart + checkout REST API backed by Postgres",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  }
+}

@@ -1,0 +1,20 @@
+# Local variable files — may contain secrets
+*.tfvars
+*.tfvars.json
+
+# Terraform state — never commit these
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Terraform plan output
+tfplan
+*.tfplan
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Terraform log file
+terraform.log

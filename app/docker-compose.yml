@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: localdevpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbadmin -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  productcatalogservice:
+    build: ./productcatalogservice
+    ports:
+      - "3000:3000"
+
+  cartcheckoutservice:
+    build: ./cartcheckoutservice
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: appdb
+      DB_USER: dbadmin
+      DB_PASSWORD: localdevpassword
+      PRODUCT_CATALOG_URL: http://productcatalogservice:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      PORT: 80
+      PRODUCT_CATALOG_URL: http://productcatalogservice:3000
+      CART_CHECKOUT_URL: http://cartcheckoutservice:3001
+      SESSION_SECRET: local-dev-secret
+    ports:
+      - "8080:80"
+    depends_on:
+      - productcatalogservice
+      - cartcheckoutservice
+
+volumes:
+  pgdata:

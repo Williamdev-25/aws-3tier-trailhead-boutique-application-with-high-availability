@@ -1,0 +1,74 @@
+[
+  {
+    "id": "P001",
+    "name": "Trailhead Backpack",
+    "description": "A rugged 30L daypack with padded straps, built for weekend hikes.",
+    "picture": "backpack.jpg",
+    "priceCents": 8999,
+    "categories": ["outdoor", "bags"]
+  },
+  {
+    "id": "P002",
+    "name": "Summit Water Bottle",
+    "description": "Insulated stainless steel bottle, keeps drinks cold for 24 hours.",
+    "picture": "bottle.jpg",
+    "priceCents": 2499,
+    "categories": ["outdoor", "accessories"]
+  },
+  {
+    "id": "P003",
+    "name": "Cedarwood Desk Lamp",
+    "description": "Warm LED desk lamp with a solid cedar base and dimmer switch.",
+    "picture": "lamp.jpg",
+    "priceCents": 4599,
+    "categories": ["home"]
+  },
+  {
+    "id": "P004",
+    "name": "Harbor Canvas Sneakers",
+    "description": "Classic low-top canvas sneakers, comfortable for everyday wear.",
+    "picture": "sneakers.jpg",
+    "priceCents": 5999,
+    "categories": ["apparel", "footwear"]
+  },
+  {
+    "id": "P005",
+    "name": "Aurora Ceramic Mug",
+    "description": "Hand-glazed 12oz ceramic mug, dishwasher and microwave safe.",
+    "picture": "mug.jpg",
+    "priceCents": 1899,
+    "categories": ["home", "kitchen"]
+  },
+  {
+    "id": "P006",
+    "name": "Driftwood Sunglasses",
+    "description": "Polarized UV400 sunglasses with a lightweight bamboo frame.",
+    "picture": "sunglasses.jpg",
+    "priceCents": 3499,
+    "categories": ["accessories"]
+  },
+  {
+    "id": "P007",
+    "name": "Meadow Wool Throw",
+    "description": "Soft woven wool throw blanket, perfect for the couch or picnic.",
+    "picture": "throw.jpg",
+    "priceCents": 6499,
+    "categories": ["home"]
+  },
+  {
+    "id": "P008",
+    "name": "Basecamp Multi-Tool",
+    "description": "12-in-1 stainless steel multi-tool with a compact belt pouch.",
+    "picture": "multitool.jpg",
+    "priceCents": 3299,
+    "categories": ["outdoor", "tools"]
+  },
+  {
+    "id": "P009",
+    "name": "Willow Tote Bag",
+    "description": "Durable cotton canvas tote, roomy enough for a day of errands.",
+    "priceCents": 2199,
+    "picture": "tote.jpg",
+    "categories": ["bags"]
+  }
+]

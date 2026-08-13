@@ -1,0 +1,28 @@
+# Checkov configuration for this repo.
+# Run with: checkov -d . --config-file .checkov.yaml
+framework:
+  - terraform
+
+directory:
+  - modules
+  - environment
+  - state-bootstrap
+
+# Findings intentionally accepted for this project, with rationale:
+#   CKV_AWS_260 - "Security group allows ingress from 0.0.0.0/0 on port 80"
+#     The public ALB is the internet-facing entry point by design; also
+#     suppressed inline in environment/dev/main.tf.
+#   CKV2_AWS_28 - "Ensure public facing ALB are protected by WAF"
+#     Out of scope for this demo; revisit before any real deployment.
+#   CKV_AWS_150 - "Ensure that Load Balancer drops HTTP headers"
+#     Not configurable via the aws_lb resource defaults used here.
+skip-check:
+  - CKV_AWS_260
+  - CKV2_AWS_28
+  - CKV_AWS_150
+
+compact: true
+quiet: true
+soft-fail-on:
+  - LOW
+  - MEDIUM

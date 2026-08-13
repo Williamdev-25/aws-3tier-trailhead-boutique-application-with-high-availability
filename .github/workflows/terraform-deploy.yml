@@ -1,0 +1,348 @@
+name: Terraform CI/CD Pipeline - 3-Tier AWS Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'environment/**'
+      - 'modules/**'
+      - 'app/**'
+      - 'state-bootstrap/**'
+      - '.github/workflows/terraform-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - '*.md'
+  workflow_dispatch: {}
+
+env:
+  TF_LOG: INFO
+  TF_LOG_PATH: terraform.log
+  TF_VERSION: "1.15.8"
+  AWS_REGION: us-east-1
+  TF_WORKING_DIR: environment/dev
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  security-events: write
+  issues: write
+
+
+#####################################
+  #  Format, Validation & Linting
+#####################################
+jobs:
+  formatting-validate-linting:
+    runs-on: ubuntu-latest
+    name: 'Formatting, Linting, and Validation'
+    outputs:
+      plan_content: ${{ steps.format_plan.outputs.plan_result }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-session-name: GitHubActions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check -recursive -diff
+        continue-on-error: true
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate -no-color
+
+      - name: Set up TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+          cache: true
+
+      - name: Init TFLint
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Run TFLint
+        run: tflint --recursive --format compact
+        continue-on-error: true
+
+      - name: Generate Terraform Plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan -no-color -out=tfplan \
+            -var="db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" \
+            -var="session_secret=${{ secrets.TF_VAR_SESSION_SECRET }}" \
+            2>&1 | tee plan_output.txt
+        continue-on-error: false
+
+      - name: Format Plan Output
+        id: format_plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          PLAN=$(cat plan_output.txt | head -c 50000)
+          echo "plan_result<<EOF" >> $GITHUB_OUTPUT
+          echo "$PLAN" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planPath = `${process.env.TF_WORKING_DIR}/plan_output.txt`;
+            let plan = fs.readFileSync(planPath, 'utf8');
+            if (plan.length > 60000) plan = plan.slice(-60000);
+            const body = `#### Terraform Plan\n<details><summary>Show plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n</details>`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Save plan to job summary
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          {
+            echo "### Terraform Plan"
+            echo '```'
+            tail -c 60000 plan_output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          retention-days: 5
+
+
+#####################################################
+  #  Security checks and scanning for vulnerabilities
+#####################################################
+  security-scan:
+    runs-on: ubuntu-latest
+    name: 'Security Scanning'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-session-name: GitHubActions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run tfsec security scan
+        uses: triat/terraform-security-scan@v3
+        id: tfsec
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Run Checkov action
+        uses: bridgecrewio/checkov-action@master
+        id: checkov
+        with:
+          directory: .
+          config_file: .checkov.yaml
+          framework: terraform
+          soft_fail: false
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          quiet: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload Checkov SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+      - name: Run Trivy IaC scan
+        uses: aquasecurity/trivy-action@0.24.0
+        id: trivy
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-config-results.sarif
+          exit-code: "1"
+        continue-on-error: true
+
+      - name: Upload Trivy config SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-config-results.sarif
+          category: trivy-config
+
+  security-scan-images:
+    runs-on: ubuntu-latest
+    name: 'Container Image Vulnerability Scan'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [frontend, productcatalogservice, cartcheckoutservice]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.service }} image
+        run: docker build -t ${{ matrix.service }}:scan app/${{ matrix.service }}
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ matrix.service }}:scan
+          format: sarif
+          output: trivy-image-${{ matrix.service }}.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+        continue-on-error: true
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image-${{ matrix.service }}.sarif
+          category: trivy-image-${{ matrix.service }}
+
+
+#####################################
+  #  Plan Review and Manual Approval
+#####################################
+  plan-manual-approval:
+    runs-on: ubuntu-latest
+    needs: [formatting-validate-linting, security-scan, security-scan-images]
+    name: 'Manual Approval'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      issues: write
+    steps:
+      - name: Await Manual Approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: Williamdev-25
+          minimum-approvals: 1
+          issue-title: "Deploy 3-Tier AWS Infrastructure to production"
+          issue-body: |
+            Please approve or deny the deployment.
+
+            ## Terraform Plan Output
+            <details>
+            <summary>Click here to expand</summary>
+
+            ${{ needs.formatting-validate-linting.outputs.plan_content }}
+
+            **To approve:** comment `approved`
+            **To deny:** comment `denied`
+            </details>
+
+
+#######################################################
+  #  Apply Terraform Plan to deploy infrastructure
+#######################################################
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    name: 'Terraform Apply'
+    needs: plan-manual-approval
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-session-name: GitHubActions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: Apply ECR + IAM first
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -target=aws_ecr_repository.frontend \
+            -target=aws_ecr_repository.productcatalogservice \
+            -target=aws_ecr_repository.cartcheckoutservice \
+            -target=aws_iam_role.ec2_ecr_pull \
+            -target=aws_iam_role_policy_attachment.ec2_ecr_pull \
+            -target=aws_iam_instance_profile.ec2_ecr_pull \
+            -var="db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" \
+            -var="session_secret=${{ secrets.TF_VAR_SESSION_SECRET }}"
+
+      - name: Log in to ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin \
+            $(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+
+      - name: Build & push images
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          for svc in frontend productcatalogservice cartcheckoutservice; do
+            image="$REGISTRY/dev-$svc:latest"
+            docker build -t "$image" "app/$svc"
+            docker push "$image"
+          done
+
+      - name: Terraform Apply
+        id: apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Show frontend URL
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform output frontend_url
