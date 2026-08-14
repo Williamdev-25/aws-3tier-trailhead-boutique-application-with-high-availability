@@ -342,7 +342,10 @@ jobs:
       - name: Terraform Apply
         id: apply
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply -auto-approve \
+            -var="db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" \
+            -var="session_secret=${{ secrets.TF_VAR_SESSION_SECRET }}"
 
       - name: Show frontend URL
         working-directory: ${{ env.TF_WORKING_DIR }}
